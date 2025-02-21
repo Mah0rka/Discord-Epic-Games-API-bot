@@ -1,0 +1,10 @@
+{
+  "profiles": {
+    "Discord-Epic-Games-API-bot": {
+      "commandName": "Project"
+    },
+    "Container (.NET SDK)": {
+      "commandName": "SdkContainer"
+    }
+  }
+}
