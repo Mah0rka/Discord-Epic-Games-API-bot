@@ -1,12 +1,7 @@
-﻿using System;
-using System.Net.Http;
-using System.Threading.Tasks;
-using System.Collections.Generic;
-using Newtonsoft.Json.Linq;
-using Discord;
-using Discord.WebSocket;
+﻿using Discord;
 using Discord.Commands;
-using System.Timers; // Використовуємо System.Timers
+using Discord.WebSocket;
+using Newtonsoft.Json.Linq;
 
 class Program
 {
