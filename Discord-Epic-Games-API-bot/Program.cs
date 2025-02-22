@@ -7,7 +7,7 @@ class Program
 {
     private static DiscordSocketClient _client;
     private static CommandService _commands;
-    private const string TOKEN = "MTM0MjUzOTA1MTQ5NjExMjIxOA.Gf7hEv.BI9EnBohs8iiXBPx4gJsFGLdbf03e4a0sqKnFY"; // Замініть на свій токен
+    private static string TOKEN => Environment.GetEnvironmentVariable("DISCORD_TOKEN"); // Замініть на свій токен
     private static ulong CHANNEL_ID = 123456789012345678; // Замініть на ID вашого каналу
     private static List<string> previousGames = new List<string>(); // Список попередніх ігор
 
