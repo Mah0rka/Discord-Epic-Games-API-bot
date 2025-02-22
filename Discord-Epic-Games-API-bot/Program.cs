@@ -2,7 +2,6 @@
 using Discord.Commands;
 using Discord.WebSocket;
 using Newtonsoft.Json.Linq;
-using System.Net.Http;
 
 class Program
 {
@@ -117,37 +116,48 @@ class Program
 
     private static async Task RefreshGameList()
     {
-        string url = "https://store-site-backend-static.ak.epicgames.com/freeGamesPromotions?locale=us";
-        using HttpClient client = new HttpClient();
-        string response = await client.GetStringAsync(url);
-        JObject data = JObject.Parse(response);
-
-        gameInfos.Clear(); // Очищуємо список перед оновленням
-
-        var games = data["data"]["Catalog"]["searchStore"]["elements"];
-
-        foreach (var game in games)
+        try
         {
-            var promotions = game["promotions"];
-            if (promotions != null)
-            {
-                var currentPromos = promotions["promotionalOffers"];
-                if (currentPromos != null && currentPromos.HasValues)
-                {
-                    GameInfo gameInfo = new GameInfo
-                    {
-                        Title = game["title"]?.ToString() ?? "Без назви",
-                        Slug = game["productSlug"]?.ToString(),
-                        GameUrl = game["productSlug"] != null ? $"https://store.epicgames.com/p/{game["productSlug"]}" : "https://store.epicgames.com/",
-                        ImgUrl = game["keyImages"]?[0]?["url"]?.ToString() ?? ""
-                    };
+            string url = "https://store-site-backend-static.ak.epicgames.com/freeGamesPromotions?locale=us";
+            using HttpClient client = new HttpClient();
+            string response = await client.GetStringAsync(url);
+            JObject data = JObject.Parse(response);
 
-                    gameInfos.Add(gameInfo);
+            gameInfos.Clear(); // Очищуємо список перед оновленням
+
+            var games = data["data"]?["Catalog"]?["searchStore"]?["elements"];
+            if (games == null)
+            {
+                Console.WriteLine("Не вдалося знайти елементи гри в JSON.");
+                return;
+            }
+
+            foreach (var game in games)
+            {
+                var promotions = game["promotions"];
+                if (promotions != null)
+                {
+                    var currentPromos = promotions["promotionalOffers"];
+                    if (currentPromos != null && currentPromos.HasValues)
+                    {
+                        GameInfo gameInfo = new GameInfo
+                        {
+                            Title = game["title"]?.ToString() ?? "Без назви",
+                            Slug = game["productSlug"]?.ToString(),
+                            GameUrl = game["productSlug"] != null ? $"https://store.epicgames.com/p/{game["productSlug"]}" : "https://store.epicgames.com/",
+                            ImgUrl = game["keyImages"]?[0]?["url"]?.ToString() ?? ""
+                        };
+
+                        gameInfos.Add(gameInfo);
+                    }
                 }
             }
+            lastUpdate = DateTime.UtcNow;
         }
-        // Оновлюємо час останнього запиту
-        lastUpdate = DateTime.UtcNow;
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Помилка при оновленні списку ігор: {ex}");
+        }
     }
 }
 
