@@ -2,6 +2,7 @@
 using Discord.Commands;
 using Discord.WebSocket;
 using Newtonsoft.Json.Linq;
+using System.Net.Http;
 
 class Program
 {
@@ -10,9 +11,9 @@ class Program
     private static string TOKEN => Environment.GetEnvironmentVariable("DISCORD_TOKEN");
     private static ulong CHANNEL_ID = 123456789012345678;
     private static List<GameInfo> gameInfos = new List<GameInfo>();
-    // Змінна для зберігання часу останнього оновлення
+    // Час останнього оновлення
     private static DateTime lastUpdate = DateTime.MinValue;
-    // Час, через який можна робити оновлення (12 годин)
+    // Інтервал оновлення – 12 годин
     private static readonly TimeSpan updateInterval = TimeSpan.FromHours(12);
 
     static async Task Main(string[] args)
@@ -49,7 +50,8 @@ class Program
 
     private static async Task HandleCommandAsync(SocketMessage messageParam)
     {
-        if (messageParam is not SocketUserMessage message || message.Author.IsBot) return;
+        if (messageParam is not SocketUserMessage message || message.Author.IsBot)
+            return;
 
         int argPos = 0;
         if (message.HasStringPrefix("!", ref argPos))
@@ -58,11 +60,11 @@ class Program
 
             if (command == "freegames")
             {
-                // Якщо пройшло менше 12 годин, відправляємо кешований результат із зазначенням часу оновлення
+                // Якщо з моменту останнього оновлення пройшло менше 12 годин і є кешовані дані
                 if (DateTime.UtcNow - lastUpdate < updateInterval && gameInfos.Count > 0)
                 {
                     await message.Channel.SendMessageAsync(
-                        $"Дані оновлено {lastUpdate.ToUniversalTime():u}. Повертаємо кешований результат.");
+                        $"Дані оновлено <t:{new DateTimeOffset(lastUpdate).ToUnixTimeSeconds()}:R>.");
                     await SendGames(message.Channel);
                 }
                 else
@@ -73,7 +75,7 @@ class Program
             }
             else if (command == "status")
             {
-                await message.Channel.SendMessageAsync("✅ Бот працює! А ТИ НІ!");
+                await message.Channel.SendMessageAsync("✅ Бот працює!");
             }
         }
     }
@@ -99,6 +101,9 @@ class Program
             await channel.SendMessageAsync("Немає безкоштовних ігор на даний момент.");
             return;
         }
+
+        // Виводимо інформацію про час оновлення
+        await channel.SendMessageAsync($"Останнє оновлення даних: {lastUpdate.ToUniversalTime():u}");
 
         foreach (var gameInfo in gameInfos)
         {
@@ -126,9 +131,9 @@ class Program
             gameInfos.Clear(); // Очищуємо список перед оновленням
 
             var games = data["data"]?["Catalog"]?["searchStore"]?["elements"];
-            if (games == null)
+            if (games == null || !games.HasValues)
             {
-                Console.WriteLine("Не вдалося знайти елементи гри в JSON.");
+                Console.WriteLine("Не вдалося знайти ігри в JSON.");
                 return;
             }
 
@@ -152,6 +157,7 @@ class Program
                     }
                 }
             }
+            // Оновлюємо час останнього запиту
             lastUpdate = DateTime.UtcNow;
         }
         catch (Exception ex)
