@@ -60,15 +60,20 @@ class Program
 
             if (command == "freegames")
             {
+                Console.WriteLine($"Отримано команду freegames від {message.Author.Username}");
+                Console.WriteLine($"Час останнього оновлення: {lastUpdate}, поточний час: {DateTime.UtcNow}");
+                Console.WriteLine($"Різниця: {(DateTime.UtcNow - lastUpdate).TotalHours} годин, Кількість кешованих ігор: {gameInfos.Count}");
+
                 // Якщо з моменту останнього оновлення пройшло менше 12 годин і є кешовані дані
                 if (DateTime.UtcNow - lastUpdate < updateInterval && gameInfos.Count > 0)
                 {
                     await message.Channel.SendMessageAsync(
-                        $"Дані оновлено <t:{new DateTimeOffset(lastUpdate).ToUnixTimeSeconds()}:R>.");
+                        $"Дані оновлено <t:{new DateTimeOffset(lastUpdate).ToUnixTimeSeconds()}:R>. Використовую кешований результат.");
                     await SendGames(message.Channel);
                 }
                 else
                 {
+                    Console.WriteLine("Оновлюємо дані...");
                     await RefreshGameList();
                     await SendGames(message.Channel);
                 }
@@ -85,6 +90,7 @@ class Program
         System.Timers.Timer timer = new System.Timers.Timer(updateInterval.TotalMilliseconds);
         timer.Elapsed += async (sender, e) =>
         {
+            Console.WriteLine("Автооновлення: оновлюємо дані.");
             await RefreshGameList();
             var channel = _client.GetChannel(CHANNEL_ID) as ISocketMessageChannel;
             if (channel != null)
@@ -92,6 +98,7 @@ class Program
         };
         timer.AutoReset = true;
         timer.Enabled = true;
+        Console.WriteLine("Таймер автооновлення запущено!");
     }
 
     private static async Task SendGames(ISocketMessageChannel channel)
@@ -103,7 +110,7 @@ class Program
         }
 
         // Виводимо інформацію про час оновлення
-        await channel.SendMessageAsync($"Останнє оновлення даних: {lastUpdate.ToUniversalTime():u}");
+        await channel.SendMessageAsync($"Дані оновлено <t:{new DateTimeOffset(lastUpdate).ToUnixTimeSeconds()}:R>.");
 
         foreach (var gameInfo in gameInfos)
         {
@@ -159,6 +166,7 @@ class Program
             }
             // Оновлюємо час останнього запиту
             lastUpdate = DateTime.UtcNow;
+            Console.WriteLine($"Оновлено список ігор. Новий час оновлення: {lastUpdate}");
         }
         catch (Exception ex)
         {
@@ -166,5 +174,3 @@ class Program
         }
     }
 }
-
-
