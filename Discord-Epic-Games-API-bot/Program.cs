@@ -146,24 +146,30 @@ class Program
 
             foreach (var game in games)
             {
-                // Переконаємось, що promotions - це об'єкт, а не примітивне значення
+                // Перевіряємо, чи є роздача безкоштовних ігор:
+                // спершу перевіряємо наявність промоцій
                 var promotions = game["promotions"];
                 if (promotions == null || promotions.Type != Newtonsoft.Json.Linq.JTokenType.Object)
                     continue;
 
                 var currentPromos = promotions["promotionalOffers"];
-                if (currentPromos != null && currentPromos.HasValues)
-                {
-                    GameInfo gameInfo = new GameInfo
-                    {
-                        Title = game["title"]?.ToString() ?? "Без назви",
-                        Slug = game["productSlug"]?.ToString(),
-                        GameUrl = game["productSlug"] != null ? $"https://store.epicgames.com/p/{game["productSlug"]}" : "https://store.epicgames.com/",
-                        ImgUrl = game["keyImages"]?[0]?["url"]?.ToString() ?? ""
-                    };
+                if (currentPromos == null || !currentPromos.HasValues)
+                    continue;
 
-                    gameInfos.Add(gameInfo);
-                }
+                // Перевіряємо, чи гра має ціну зі знижкою, яка дорівнює 0
+                int discountPrice = game["price"]?["totalPrice"]?["discountPrice"]?.Value<int>() ?? -1;
+                if (discountPrice != 0)
+                    continue; // Пропускаємо, якщо гра не безкоштовна
+
+                GameInfo gameInfo = new GameInfo
+                {
+                    Title = game["title"]?.ToString() ?? "Без назви",
+                    Slug = game["productSlug"]?.ToString(),
+                    GameUrl = game["productSlug"] != null ? $"https://store.epicgames.com/p/{game["productSlug"]}" : "https://store.epicgames.com/",
+                    ImgUrl = game["keyImages"]?[0]?["url"]?.ToString() ?? ""
+                };
+
+                gameInfos.Add(gameInfo);
             }
             // Оновлюємо час останнього запиту
             lastUpdate = DateTime.UtcNow;
@@ -174,5 +180,6 @@ class Program
             Console.WriteLine($"Помилка при оновленні списку ігор: {ex}");
         }
     }
+
 
 }
