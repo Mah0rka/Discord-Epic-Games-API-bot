@@ -146,22 +146,23 @@ class Program
 
             foreach (var game in games)
             {
+                // Переконаємось, що promotions - це об'єкт, а не примітивне значення
                 var promotions = game["promotions"];
-                if (promotions != null)
-                {
-                    var currentPromos = promotions["promotionalOffers"];
-                    if (currentPromos != null && currentPromos.HasValues)
-                    {
-                        GameInfo gameInfo = new GameInfo
-                        {
-                            Title = game["title"]?.ToString() ?? "Без назви",
-                            Slug = game["productSlug"]?.ToString(),
-                            GameUrl = game["productSlug"] != null ? $"https://store.epicgames.com/p/{game["productSlug"]}" : "https://store.epicgames.com/",
-                            ImgUrl = game["keyImages"]?[0]?["url"]?.ToString() ?? ""
-                        };
+                if (promotions == null || promotions.Type != Newtonsoft.Json.Linq.JTokenType.Object)
+                    continue;
 
-                        gameInfos.Add(gameInfo);
-                    }
+                var currentPromos = promotions["promotionalOffers"];
+                if (currentPromos != null && currentPromos.HasValues)
+                {
+                    GameInfo gameInfo = new GameInfo
+                    {
+                        Title = game["title"]?.ToString() ?? "Без назви",
+                        Slug = game["productSlug"]?.ToString(),
+                        GameUrl = game["productSlug"] != null ? $"https://store.epicgames.com/p/{game["productSlug"]}" : "https://store.epicgames.com/",
+                        ImgUrl = game["keyImages"]?[0]?["url"]?.ToString() ?? ""
+                    };
+
+                    gameInfos.Add(gameInfo);
                 }
             }
             // Оновлюємо час останнього запиту
@@ -173,4 +174,5 @@ class Program
             Console.WriteLine($"Помилка при оновленні списку ігор: {ex}");
         }
     }
+
 }
