@@ -175,14 +175,20 @@ class Program
         {
             Console.WriteLine("Автооновлення: оновлюємо дані.");
             await RefreshGameList();
-            // Відправка в канал за замовчуванням, або використовуємо налаштований канал для кожного серверу, якщо є
-            ulong channelId = defaultChannelId;
-            if (guildGameChannels.TryGetValue(defaultChannelId, out ulong configuredChannel))
-                channelId = configuredChannel;
 
-            if (_client.GetChannel(channelId) is ISocketMessageChannel channel)
+            // Ітеруємо по налаштованим каналам
+            foreach (var kvp in guildGameChannels)
             {
-                await SendGames(channel);
+                ulong channelId = kvp.Value;
+                Console.WriteLine($"ID: {channelId}");
+                if (_client.GetChannel(channelId) is ISocketMessageChannel channel)
+                {
+                    await SendGames(channel);
+                }
+                else
+                {
+                    Console.WriteLine($"Не вдалося отримати канал з ID: {channelId}");
+                }
             }
         };
         timer.AutoReset = true;
