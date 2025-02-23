@@ -16,10 +16,10 @@ class Program
     // ==================== Дані гри та кешування ====================
     private static List<GameInfo> gameInfos = new List<GameInfo>();
     private static DateTime lastUpdate = DateTime.MinValue;
-    private static readonly TimeSpan updateInterval = TimeSpan.FromHours(12);
+    private static readonly TimeSpan updateInterval = TimeSpan.FromMinutes(2);
 
     // ==================== Захист від флуду ====================
-    private static readonly TimeSpan commandCooldown = TimeSpan.FromMinutes(5);
+    private static readonly TimeSpan commandCooldown = TimeSpan.FromMinutes(1);
     private static readonly ConcurrentDictionary<ulong, DateTime> userLastCommandTime = new ConcurrentDictionary<ulong, DateTime>();
 
     // ==================== Налаштування каналів для серверів ====================
