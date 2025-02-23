@@ -66,9 +66,7 @@ class Program
 
                 // Якщо з моменту останнього оновлення пройшло менше 12 годин і є кешовані дані
                 if (DateTime.UtcNow - lastUpdate < updateInterval && gameInfos.Count > 0)
-                {
-                    await message.Channel.SendMessageAsync(
-                        $"Дані оновлено <t:{new DateTimeOffset(lastUpdate).ToUnixTimeSeconds()}:R>. Використовую кешований результат.");
+                { 
                     await SendGames(message.Channel);
                 }
                 else
@@ -180,6 +178,4 @@ class Program
             Console.WriteLine($"Помилка при оновленні списку ігор: {ex}");
         }
     }
-
-
 }
