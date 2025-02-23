@@ -1,4 +1,5 @@
-﻿public class GameInfo
+﻿// ==================== Клас для зберігання інформації про гру ====================
+public class GameInfo
 {
     public string Title { get; set; }
     public string Slug { get; set; }

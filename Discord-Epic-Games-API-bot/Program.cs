@@ -2,35 +2,34 @@
 using Discord.Commands;
 using Discord.WebSocket;
 using Newtonsoft.Json.Linq;
-using System.Net.Http;
 using System.Collections.Concurrent;
 
 class Program
 {
+    // ==================== Налаштування клієнта та команд ====================
     private static DiscordSocketClient _client;
     private static CommandService _commands;
-    private static string TOKEN => Environment.GetEnvironmentVariable("DISCORD_TOKEN");
-    private static ulong CHANNEL_ID = 123456789012345678;
-    private static List<GameInfo> gameInfos = new List<GameInfo>();
-    // Час останнього оновлення даних
-    private static DateTime lastUpdate = DateTime.MinValue;
-    // Інтервал оновлення – 12 годин
-    private static readonly TimeSpan updateInterval = TimeSpan.FromHours(12);
-    // Кулдаун для команди freegames (5 хвилин)
-    private static readonly TimeSpan commandCooldown = TimeSpan.FromMinutes(5);
-    // Зберігаємо час останнього виклику команди для кожного користувача
-    private static ConcurrentDictionary<ulong, DateTime> userLastCommandTime = new ConcurrentDictionary<ulong, DateTime>();
+    private static readonly string TOKEN = Environment.GetEnvironmentVariable("DISCORD_TOKEN");
+    // За замовчуванням використовуємо цей канал для автооновлення (можна змінити за допомогою команди)
+    private static ulong defaultChannelId = 123456789012345678;
 
+    // ==================== Дані гри та кешування ====================
+    private static List<GameInfo> gameInfos = new List<GameInfo>();
+    private static DateTime lastUpdate = DateTime.MinValue;
+    private static readonly TimeSpan updateInterval = TimeSpan.FromHours(12);
+
+    // ==================== Захист від флуду ====================
+    private static readonly TimeSpan commandCooldown = TimeSpan.FromMinutes(5);
+    private static readonly ConcurrentDictionary<ulong, DateTime> userLastCommandTime = new ConcurrentDictionary<ulong, DateTime>();
+
+    // ==================== Налаштування каналів для серверів ====================
+    // Ключ – GuildId, значення – ChannelId для відправки повідомлень з іграми
+    private static readonly ConcurrentDictionary<ulong, ulong> guildGameChannels = new ConcurrentDictionary<ulong, ulong>();
+
+    // ==================== Main ====================
     static async Task Main(string[] args)
     {
-        _client = new DiscordSocketClient(new DiscordSocketConfig
-        {
-            GatewayIntents = GatewayIntents.Guilds
-                           | GatewayIntents.GuildMessages
-                           | GatewayIntents.MessageContent
-        });
-
-        _commands = new CommandService();
+        InitializeDiscordClient();
 
         _client.Log += Log;
         _client.Ready += OnReady;
@@ -44,6 +43,18 @@ class Program
         await Task.Delay(-1);
     }
 
+    private static void InitializeDiscordClient()
+    {
+        _client = new DiscordSocketClient(new DiscordSocketConfig
+        {
+            GatewayIntents = GatewayIntents.Guilds
+                           | GatewayIntents.GuildMessages
+                           | GatewayIntents.MessageContent
+        });
+        _commands = new CommandService();
+    }
+
+    // ==================== Логування ====================
     private static Task Log(LogMessage msg)
     {
         Console.WriteLine(msg.ToString());
@@ -53,8 +64,10 @@ class Program
     private static async Task OnReady()
     {
         Console.WriteLine($"Бот {_client.CurrentUser} запущений!");
+        await Task.CompletedTask;
     }
 
+    // ==================== Обробка команд ====================
     private static async Task HandleCommandAsync(SocketMessage messageParam)
     {
         if (messageParam is not SocketUserMessage message || message.Author.IsBot)
@@ -64,66 +77,120 @@ class Program
         if (!message.HasStringPrefix("!", ref argPos))
             return;
 
-        string command = message.Content.Substring(argPos).ToLower();
 
-        // Захист команди freegames по кулдауну
-        if (command == "freegames")
+        string commandLine = message.Content.Substring(argPos);
+        // Розділяємо команду та аргументи
+        string[] parts = commandLine.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        if (parts.Length == 0)
+            return;
+
+        string command = parts[0].ToLower();
+
+        switch (command)
         {
-            // Перевіряємо час останнього використання команди для цього користувача
-            if (userLastCommandTime.TryGetValue(message.Author.Id, out DateTime lastUsed))
-            {
-                TimeSpan timeSinceLastUse = DateTime.UtcNow - lastUsed;
-                if (timeSinceLastUse < commandCooldown)
-                {
-                    TimeSpan waitTime = commandCooldown - timeSinceLastUse;
-                    await message.Channel.SendMessageAsync(
-                        $"Будь ласка, зачекайте ще {waitTime.Minutes} хвилин {waitTime.Seconds} секунд, перш ніж використовувати команду знову.");
-                    return;
-                }
-            }
-            // Оновлюємо час останнього використання команди для користувача
-            userLastCommandTime[message.Author.Id] = DateTime.UtcNow;
-
-            Console.WriteLine($"Отримано команду freegames від {message.Author.Username}");
-            Console.WriteLine($"Час останнього оновлення: {lastUpdate}, поточний час: {DateTime.UtcNow}");
-            Console.WriteLine($"Різниця: {(DateTime.UtcNow - lastUpdate).TotalHours} годин, Кількість кешованих ігор: {gameInfos.Count}");
-
-            // Якщо з моменту останнього оновлення пройшло менше 12 годин і є кешовані дані
-            if (DateTime.UtcNow - lastUpdate < updateInterval && gameInfos.Count > 0)
-            {
-                await message.Channel.SendMessageAsync(
-                    $"Дані оновлено <t:{new DateTimeOffset(lastUpdate).ToUnixTimeSeconds()}:R>. Використовую кешований результат.");
-                await SendGames(message.Channel);
-            }
-            else
-            {
-                Console.WriteLine("Оновлюємо дані...");
-                await RefreshGameList();
-                await SendGames(message.Channel);
-            }
-        }
-        else if (command == "status")
-        {
-            await message.Channel.SendMessageAsync("✅ Бот працює!");
+            case "freegames":
+                await HandleFreeGamesCommand(message);
+                break;
+            case "status":
+                await message.Channel.SendMessageAsync("✅ Бот працює!");
+                break;
+            case "setgamechannel":
+                await HandleSetGameChannelCommand(message, parts);
+                break;
         }
     }
 
+    private static async Task HandleFreeGamesCommand(SocketUserMessage message)
+    {
+        // Захист команди по кулдауну
+        if (userLastCommandTime.TryGetValue(message.Author.Id, out DateTime lastUsed))
+        {
+            TimeSpan elapsed = DateTime.UtcNow - lastUsed;
+            if (elapsed < commandCooldown)
+            {
+                TimeSpan waitTime = commandCooldown - elapsed;
+                await message.Channel.SendMessageAsync(
+                    $"Будь ласка, зачекайте ще {waitTime.Minutes} хвилин {waitTime.Seconds} секунд, перш ніж використовувати команду знову.");
+                return;
+            }
+        }
+        userLastCommandTime[message.Author.Id] = DateTime.UtcNow;
+
+        Console.WriteLine($"Отримано команду freegames від {message.Author.Username}");
+        Console.WriteLine($"Час останнього оновлення: {lastUpdate}, поточний час: {DateTime.UtcNow}");
+        Console.WriteLine($"Різниця: {(DateTime.UtcNow - lastUpdate).TotalHours} годин, Кількість кешованих ігор: {gameInfos.Count}");
+
+        if (IsDataCached())
+        {
+            await message.Channel.SendMessageAsync(
+                $"Дані оновлено <t:{new DateTimeOffset(lastUpdate).ToUnixTimeSeconds()}:R>. Використовую кешований результат.");
+        }
+        else
+        {
+            Console.WriteLine("Оновлюємо дані...");
+            await RefreshGameList();
+        }
+        await SendGames(message.Channel);
+    }
+
+    private static async Task HandleSetGameChannelCommand(SocketUserMessage message, string[] parts)
+    {
+        // Перевірка прав: можна додатково перевіряти чи користувач має права адміністратора
+        if (!(message.Author is SocketGuildUser guildUser) || !guildUser.GuildPermissions.Administrator)
+        {
+            await message.Channel.SendMessageAsync("У вас недостатньо прав для зміни налаштувань.");
+            return;
+        }
+
+        if (parts.Length < 2)
+        {
+            await message.Channel.SendMessageAsync("Будь ласка, вкажіть канал. Приклад: `!setgamechannel #games`");
+            return;
+        }
+
+        // Спробуємо отримати канал з згадки
+        SocketTextChannel targetChannel = message.Channel as SocketTextChannel;
+        if (targetChannel == null)
+        {
+            // Обробка ситуації, якщо канал не є текстовим
+            await message.Channel.SendMessageAsync("Не вдалося знайти згаданий канал. Переконайтеся, що ви вказали канал.");
+            return;
+        }
+
+        // Записуємо налаштування для даної гільдії (серверу)
+        guildGameChannels[message.Channel.Id] = targetChannel.Id;
+        await message.Channel.SendMessageAsync($"Канал для повідомлень з іграми встановлено: {targetChannel.Mention}");
+    }
+
+    private static bool IsDataCached()
+    {
+        return (DateTime.UtcNow - lastUpdate) < updateInterval && gameInfos.Count > 0;
+    }
+
+    // ==================== Автооновлення ====================
     private static void StartAutoUpdate()
     {
-        System.Timers.Timer timer = new System.Timers.Timer(updateInterval.TotalMilliseconds);
+        var timer = new System.Timers.Timer(updateInterval.TotalMilliseconds);
         timer.Elapsed += async (sender, e) =>
         {
             Console.WriteLine("Автооновлення: оновлюємо дані.");
             await RefreshGameList();
-            var channel = _client.GetChannel(CHANNEL_ID) as ISocketMessageChannel;
-            if (channel != null)
+            // Відправка в канал за замовчуванням, або використовуємо налаштований канал для кожного серверу, якщо є
+            ulong channelId = defaultChannelId;
+            if (guildGameChannels.TryGetValue(defaultChannelId, out ulong configuredChannel))
+                channelId = configuredChannel;
+
+            if (_client.GetChannel(channelId) is ISocketMessageChannel channel)
+            {
                 await SendGames(channel);
+            }
         };
         timer.AutoReset = true;
         timer.Enabled = true;
         Console.WriteLine("Таймер автооновлення запущено!");
     }
 
+    // ==================== Відправлення ігор ====================
     private static async Task SendGames(ISocketMessageChannel channel)
     {
         if (gameInfos.Count == 0)
@@ -132,7 +199,6 @@ class Program
             return;
         }
 
-        // Виводимо інформацію про час оновлення
         await channel.SendMessageAsync($"Дані оновлено <t:{new DateTimeOffset(lastUpdate).ToUnixTimeSeconds()}:R>.");
 
         foreach (var gameInfo in gameInfos)
@@ -149,6 +215,7 @@ class Program
         }
     }
 
+    // ==================== Оновлення списку ігор ====================
     private static async Task RefreshGameList()
     {
         try
@@ -158,8 +225,7 @@ class Program
             string response = await client.GetStringAsync(url);
             JObject data = JObject.Parse(response);
 
-            gameInfos.Clear(); // Очищуємо список перед оновленням
-
+            gameInfos.Clear();
             var games = data["data"]?["Catalog"]?["searchStore"]?["elements"];
             if (games == null || !games.HasValues)
             {
@@ -169,31 +235,32 @@ class Program
 
             foreach (var game in games)
             {
-                // Перевіряємо, чи є роздача безкоштовних ігор:
+                // Перевірка наявності промоцій та безкоштовної гри
                 var promotions = game["promotions"];
-                if (promotions == null || promotions.Type != Newtonsoft.Json.Linq.JTokenType.Object)
+                if (promotions == null || promotions.Type != JTokenType.Object)
                     continue;
 
                 var currentPromos = promotions["promotionalOffers"];
                 if (currentPromos == null || !currentPromos.HasValues)
                     continue;
 
-                // Перевіряємо, чи гра має ціну зі знижкою, яка дорівнює 0
                 int discountPrice = game["price"]?["totalPrice"]?["discountPrice"]?.Value<int>() ?? -1;
                 if (discountPrice != 0)
-                    continue; // Пропускаємо, якщо гра не безкоштовна
+                    continue;
 
-                GameInfo gameInfo = new GameInfo
+                var gameInfo = new GameInfo
                 {
                     Title = game["title"]?.ToString() ?? "Без назви",
                     Slug = game["productSlug"]?.ToString(),
-                    GameUrl = game["productSlug"] != null ? $"https://store.epicgames.com/p/{game["productSlug"]}" : "https://store.epicgames.com/",
+                    GameUrl = game["productSlug"] != null
+                                ? $"https://store.epicgames.com/p/{game["productSlug"]}"
+                                : "https://store.epicgames.com/",
                     ImgUrl = game["keyImages"]?[0]?["url"]?.ToString() ?? ""
                 };
 
                 gameInfos.Add(gameInfo);
             }
-            // Оновлюємо час останнього запиту
+
             lastUpdate = DateTime.UtcNow;
             Console.WriteLine($"Оновлено список ігор. Новий час оновлення: {lastUpdate}");
         }
@@ -203,4 +270,3 @@ class Program
         }
     }
 }
-
