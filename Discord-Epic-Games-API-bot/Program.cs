@@ -19,7 +19,7 @@ namespace DiscordEpicGamesBot
         private static ulong defaultChannelId = 123456789012345678;
 
         // ==================== Захист від флуду ====================
-        private static readonly TimeSpan commandCooldown = TimeSpan.FromMinutes(5);
+        private static readonly TimeSpan commandCooldown = TimeSpan.FromMinutes(1);
         private static readonly ConcurrentDictionary<ulong, DateTime> userLastCommandTime = new ConcurrentDictionary<ulong, DateTime>();
 
         // ==================== Налаштування каналів для серверів ====================
