@@ -19,7 +19,7 @@ namespace DiscordEpicGamesBot
         private static ulong defaultChannelId = 123456789012345678;
 
         // ==================== Захист від флуду ====================
-        private static readonly TimeSpan commandCooldown = TimeSpan.FromMinutes(3);
+        private static readonly TimeSpan commandCooldown = TimeSpan.FromMinutes(1);
         private static readonly ConcurrentDictionary<ulong, DateTime> userLastCommandTime = new ConcurrentDictionary<ulong, DateTime>();
 
         // ==================== Налаштування каналів для серверів ====================
@@ -111,9 +111,8 @@ namespace DiscordEpicGamesBot
                 TimeSpan elapsed = DateTime.UtcNow - lastUsed;
                 if (elapsed < commandCooldown)
                 {
-                    TimeSpan waitTime = commandCooldown - elapsed;
                     await message.Channel.SendMessageAsync(
-                        $"Будь ласка, зачекайте ще {waitTime.Minutes} хвилин {waitTime.Seconds} секунд, перш ніж використовувати команду знову.");
+                        $"Будь ласка, зачекайте 3 хвилини, перш ніж використовувати команду знову.");
                     return;
                 }
             }

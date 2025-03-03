@@ -7,7 +7,7 @@ public class GameService
 {
     private List<GameInfo> _gameInfos = new List<GameInfo>();
     public DateTime LastUpdate { get; private set; } = DateTime.MinValue;
-    public TimeSpan UpdateInterval { get; } = TimeSpan.FromHours(12);
+    public TimeSpan UpdateInterval { get; } = TimeSpan.FromMinutes(2);
 
     public List<GameInfo> CurrentGames => _gameInfos;
 
@@ -16,7 +16,7 @@ public class GameService
     /// </summary>
     public bool IsDataCached()
     {
-        return (DateTime.UtcNow - LastUpdate) < UpdateInterval && _gameInfos.Count > 0;
+        return ((DateTime.UtcNow - LastUpdate) < UpdateInterval || !(DateTime.Now.Hour == 18 && DateTime.Now.Minute == 03)) && _gameInfos.Count > 0;
     }
 
     /// <summary>
