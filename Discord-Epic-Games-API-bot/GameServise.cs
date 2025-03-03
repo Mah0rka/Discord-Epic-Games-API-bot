@@ -7,7 +7,7 @@ public class GameService
 {
     private List<GameInfo> _gameInfos = new List<GameInfo>();
     public DateTime LastUpdate { get; private set; } = DateTime.MinValue;
-    public TimeSpan UpdateInterval { get; } = TimeSpan.FromMinutes(2);
+    public TimeSpan UpdateInterval { get; } = TimeSpan.FromHours(12);
 
     public List<GameInfo> CurrentGames => _gameInfos;
 
