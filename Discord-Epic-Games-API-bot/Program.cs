@@ -198,21 +198,24 @@ namespace DiscordEpicGamesBot
                 await channel.SendMessageAsync("Немає безкоштовних ігор на даний момент.");
                 return;
             }
-
-            await channel.SendMessageAsync($"Дані оновлено <t:{new DateTimeOffset(lastUpdate).ToUnixTimeSeconds()}:R>.");
-
-            foreach (var gameInfo in games)
+            try
             {
-                var embed = new EmbedBuilder()
-                    .WithTitle(gameInfo.Title)
-                    .WithUrl(gameInfo.GameUrl)
-                    .WithDescription("💥 **Безкоштовно зараз в Epic Games Store!** 💥")
-                    .WithColor(Color.Green)
-                    .WithImageUrl(gameInfo.ImgUrl)
-                    .Build();
+                await channel.SendMessageAsync($"Дані оновлено <t:{new DateTimeOffset(lastUpdate).ToUnixTimeSeconds()}:R>.");
 
-                await channel.SendMessageAsync(embed: embed);
+                foreach (var gameInfo in games)
+                {
+                    var embed = new EmbedBuilder()
+                        .WithTitle(gameInfo.Title)
+                        .WithUrl(gameInfo.GameUrl)
+                        .WithDescription("💥 **Безкоштовно зараз в Epic Games Store!** 💥")
+                        .WithColor(Color.Green)
+                        .WithImageUrl(gameInfo.ImgUrl)
+                        .Build();
+
+                    await channel.SendMessageAsync(embed: embed);
+                }
             }
+            catch (Exception) { }
         }
     }
 
